@@ -104,7 +104,9 @@ init_image() {
 install_centos() {
 	#wget http://mirror.centos.org/centos/5/os/x86_64/CentOS/centos-release-5-0.0.el5.centos.2.x86_64.rpm
 	#wget http://mirror.centos.org/centos/5/os/x86_64/CentOS/centos-release-5-4.el5.centos.1.x86_64.rpm 
-	if [ ! -f "$CENTOSRPM" ] ; then
+  RPM=`basename $CENTOSRPM`
+
+	if [ ! -f "$RPM" ] ; then
 		wget $CENTOSRPM
 	fi
 	rpm --initdb --root=${INSTALL_PATH}
