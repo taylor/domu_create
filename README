@@ -1,40 +1,60 @@
 Create a config file.  With the following information
 
-Image type of file or LVM
-IMGTYPE=file|lvm
+  Image type of file or LVM
+  IMGTYPE=file|lvm
 
-For LVM specify the volume group
+  For LVM specify the volume group
 
-	VG=vgname
+    VG=vgname
 
-For file image specifify the path
+  For file image specifify the path
 
-	IMGPATH=/some/path
+    IMGPATH=/some/path
 
-Specify a name for the root and swap images or lvms
+  Specify a name for the root and swap images or lvms
 
-SYSVOL=intgtest-root
-SWAPVOL=intgtest-swap
+  SYSVOL=intgtest-root
+  SWAPVOL=intgtest-swap
 
-Their sizes
+  Their sizes
 
-SYSVOLSIZE=5G
-SWAPVOLSIZE=2G
+  SYSVOLSIZE=5G
+  SWAPVOLSIZE=2G
 
 
-Memory ahd CPU for xen (currently not used)
+  Memory ahd CPU for xen (currently not used)
 
-MEMORY=1G
-VCPUS=1
+  MEMORY=1G
+  VCPUS=1
 
-Where to get the centos packages
+  Where to get the centos packages
 
-CENTOSRPM="http://centos.thecatalis.com/5.4/os/x86_64/CentOS/centos-release-5-4.el5.centos.1.x86_64.rpm"
-CENTOSGROUPS="Core"
+  CENTOSRPM="http://centos.thecatalis.com/5.4/os/x86_64/CentOS/centos-release-5-4.el5.centos.1.x86_64.rpm"
+  CENTOSGROUPS="Core"
 
-What xen kernel
+  What xen kernel
 
-KERNEL="/var/lib/xen/boot/vmlinuz-2.6.18-164.el5xen.img"
-#KMODULES="/lib/modules/2.6.18-164.el5xen"
+  KERNEL="/var/lib/xen/boot/vmlinuz-2.6.18-164.el5xen.img"
+  #KMODULES="/lib/modules/2.6.18-164.el5xen"
 
 Misc
+
+Then put whatever stuff you feel like custom in base/* which is copied to the
+new system root.   This should include the lib/modules/kernel-* directory and
+modules...  You can grab my tar of the 2.6.18-164 modules from
+
+  wget https://domu-create.s3.amazonaws.com/base-kernel_modules.tgz
+
+now run domu_centos_create myconfig.cfg
+
+It will install a bunch of centos base packages then open up vi editing some
+important files like /etc/hosts, /etc/resolv.conf, /etc/fstab.
+
+  Type :w<ENTER> to save the file
+  Type :next<ENTER> to go to the next file
+
+Yeh this stuff will be part of the config file later -- if I continue to update this project
+
+
+
+
