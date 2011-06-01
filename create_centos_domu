@@ -1,0 +1,142 @@
+#!/bin/bash
+
+if [ "$1" = "" ] ; then
+	echo "usage: $0 <config>"
+	exit
+elif [ ! -f "$1"  ] ; then
+	echo "Could not open $1"
+	exit
+fi
+
+config="$1"
+. $config
+
+INSTALL_PATH=/mnt/$SYSVOL
+
+if [ -z "$IMGTYPE" ] ; then
+	echo "Image type (IMGTYPE) must be specified"
+	exit 1
+elif [ "$IMGTYPE" = "lvm" ] ; then
+	if [ -z "${VG}" ] ; then
+		echo "LVM volume group (VG) must be specified"
+		exit 1
+	fi
+
+	vgs 2> /dev/null |grep -v VFree |grep ${VG} > /dev/null
+	if [ ! $? = 0 ] ; then
+		echo "Volume Group $VG not found"
+		exit 1
+	fi
+elif [ "$IMGTYPE" = "file" ] ; then
+	if [ -z "${IMGPATH}" ] ; then
+		echo "Image path (IMGPATH) required when using file type"
+		exit 1
+	elif [ ! -d "${IMGPATH}" ] ; then
+		echo "Image path ${IMGPATH} not found!"
+		exit 1
+	elif [ -f "${IMGPATH}/${SYSVOL}" -o -f "${IMGPATH}/${SYSVOL}" ] ; then
+		echo "Image files already exists!"
+		exit 1
+	fi
+else
+	echo "Unknown image type: $IMGTYPE"
+	exit 1
+fi
+
+
+echo "This script only works when ran on a CentOS system for the moment"
+echo -n "Type YES if you want to create $SYSVOL and $SWAPVOL: "
+read resp
+if [ ! "$resp" = "YES" ] ; then
+	exit
+fi
+
+
+set -x
+
+SYSPATH=""
+SWAPPATH=""
+
+
+create_image() {
+	case $IMGTYPE in
+	lvm)
+		lvcreate --size $SYSVOLSIZE --name $SYSVOL ${VG}
+		lvcreate --size $SWAPVOLSIZE --name $SWAPVOL ${VG}
+		SYSPATH="/dev/${VG}/$SYSVOL"
+		SWAPPATH="/dev/${VG}/$SWAPVOL"
+		;;
+	file)
+		SYSPATH="${IMGPATH}/$SYSVOL"
+		SWAPPATH="${IMGPATH}/$SWAPVOL"
+		dd if=/dev/zero of=${SYSPATH} bs=1 count=1 seek=${SYSVOLSIZE}
+		dd if=/dev/zero of=${SWAPPATH} bs=1 count=1 seek=${SWAPVOLSIZE}
+		;;
+	*)
+		echo "Unknown image type: $IMGTYPE"
+		exit 1
+		;;
+	esac
+
+	mkfs.ext3 ${SYSPATH}
+	mkswap ${SWAPPATH}
+}
+
+
+
+init_image() {
+	mkdir ${INSTALL_PATH}
+	MNTOPTS=""
+
+	if [ "${IMGTYPE}" = "file" ] ; then
+		MNTOPTS="-o loop"		
+	fi
+
+	mount ${MNTOPTS} ${SYSPATH} ${INSTALL_PATH}
+	mkdir -p ${INSTALL_PATH}/dev ${INSTALL_PATH}/etc ${INSTALL_PATH}/proc ${INSTALL_PATH}/var/lock/rpm ${INSTALL_PATH}/var/lib/rpm ${INSTALL_PATH}/var/log
+	MAKEDEV -d ${INSTALL_PATH}/dev -x random
+	MAKEDEV -d ${INSTALL_PATH}/dev -x console
+	MAKEDEV -d ${INSTALL_PATH}/dev -x zero
+	MAKEDEV -d ${INSTALL_PATH}/dev -x null
+	mount -t proc none ${INSTALL_PATH}/proc
+}
+
+install_centos() {
+	#wget http://mirror.centos.org/centos/5/os/x86_64/CentOS/centos-release-5-0.0.el5.centos.2.x86_64.rpm
+	#wget http://mirror.centos.org/centos/5/os/x86_64/CentOS/centos-release-5-4.el5.centos.1.x86_64.rpm 
+	if [ ! -f "$CENTOSRPM" ] ; then
+		wget $CENTOSRPM
+	fi
+	rpm --initdb --root=${INSTALL_PATH}
+	rpm -ivh --root=${INSTALL_PATH} --nodeps centos-release*.rpm
+	#yum groupinstall Core --installroot=${INSTALL_PATH}
+	#yum groupinstall Core --installroot=${INSTALL_PATH}
+	yum -y groupinstall $CENTOSGROUPS --installroot=${INSTALL_PATH} --disableplugin=protectbase --disableplugin=fastestmirror
+}
+
+
+
+create_image
+init_image
+install_centos
+
+cp -a base/* ${INSTALL_PATH}
+cd ${INSTALL_PATH}
+if [ -x `which vim` ] ; then
+	EDITOR=vim
+else
+	EDITOR=vi
+fi
+
+$EDITOR etc/fstab etc/resolv.conf etc/sysconfig/network etc/sysconfig/network-scripts/ifcfg-eth0 etc/hosts
+
+echo "Disabling selinux"
+
+set -x
+sed -i 's/^SELINUX=enf.*/SELINUX=disabled/' etc/selinux/config
+set +x
+
+# TODO: Create xen config file
+echo "Go create the xen config and do whatever else you want"
+echo "Image is still mounted under ${INSTALL_PATH}"
+echo "Change root passwd.  Use chroot, then pwconv, then passwd"
